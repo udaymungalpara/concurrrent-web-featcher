@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,35 +15,48 @@ type Result struct {
 	status   int
 	duration time.Duration
 	Title    string
+	attempt  int
+}
+
+func retry(url string) (*http.Response, error, int) {
+
+	var resp *http.Response
+	var err error
+	at := 0
+	for i := 0; i < 3; i++ {
+		resp, err = http.Get(url)
+		at++
+
+		if err == nil {
+			return resp, err, at
+		}
+		time.Sleep(time.Second * 2)
+
+	}
+	return nil, err, at
 }
 
 func fetchurl(url string, wg *sync.WaitGroup, res chan<- Result) {
 	defer wg.Done()
-
-	resp, err := http.Get(url)
-	if err != nil || resp == nil {
-		res <- Result{url: url, Title: "Error"}
+	start := time.Now()
+	var at int
+	resp, err, at := retry(url)
+	if err != nil {
+		res <- Result{url: url, Title: "error with retry", attempt: at}
 		return
 	}
 	defer resp.Body.Close()
-	start := time.Now()
 
-	if err != nil {
-
-	}
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 
 	var title string
 
-	if err != nil {
-		title = "title not found"
-	} else {
-
-		title = doc.Find("title").Text()
-
+	title = "title not found"
+	if err == nil {
+		title = strings.TrimSpace(doc.Find("title").Text())
 	}
 
-	res <- Result{url: url, status: resp.StatusCode, duration: time.Since(start), Title: title}
+	res <- Result{url: url, status: resp.StatusCode, duration: time.Since(start), Title: title, attempt: at}
 
 }
 
@@ -73,7 +87,7 @@ func main() {
 		fmt.Println("Status:", i.status)
 		fmt.Println("Title:", i.Title)
 		fmt.Println("Time:", i.duration)
-		fmt.Println()
+		fmt.Println("Attempt:", i.attempt)
 
 	}
 
