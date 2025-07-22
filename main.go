@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/k0kubun/go-ansi"
+	"github.com/schollz/progressbar/v3"
 )
 
 type Result struct {
@@ -67,6 +69,17 @@ func main() {
 		"https://google.com",
 		"https://www.geeksforgeeks.org",
 	}
+	pbar := progressbar.NewOptions(len(urls), progressbar.OptionSetWriter(ansi.NewAnsiStdout()),
+		progressbar.OptionEnableColorCodes(true),
+		progressbar.OptionSetWidth(50),
+		progressbar.OptionSetTheme(progressbar.Theme{
+			Saucer:        "[green]=[reset]",
+			SaucerHead:    "[green]>[reset]",
+			SaucerPadding: " ",
+			BarStart:      "[",
+			BarEnd:        "]",
+		}),
+	)
 
 	res := make(chan Result, len(urls))
 
@@ -81,9 +94,18 @@ func main() {
 		wg.Wait()
 		close(res)
 	}()
+	var result []Result
 
 	for i := range res {
-		fmt.Println("URL:", i.url)
+		
+		result = append(result, i)
+	}
+
+	for _, i := range result {
+
+		fmt.Println("\n-------Result------")
+
+		fmt.Println("\nURL:", i.url)
 		fmt.Println("Status:", i.status)
 		fmt.Println("Title:", i.Title)
 		fmt.Println("Time:", i.duration)
